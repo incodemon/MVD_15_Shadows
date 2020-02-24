@@ -52,6 +52,7 @@ void GraphicsSystem::init(int window_width, int window_height, std::string asset
 								"data/shaders/depth.frag");
 
 	shadow_frame_.initDepth(1024,1024);
+	//shadow_frame_.initDepth(2048, 2048);
 
 }
 
@@ -75,11 +76,13 @@ void GraphicsSystem::update(float dt) {
 	shadow_frame_.bindAndClear();
 	//get single light in our scene
 	Light& light = ECS.getAllComponents<Light>()[0];
+	glCullFace(GL_FRONT);
 	for (auto &mesh : ECS.getAllComponents<Mesh>()) {
 		//render mesh to depth texture, from
 		//point of view of light
 		renderDepth_(mesh,light);
 	}
+	glCullFace(GL_BACK);
 
 	/* SCREEN PASS */
 
