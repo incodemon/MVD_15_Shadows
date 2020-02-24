@@ -67,6 +67,11 @@ void Game::init(int w, int h) {
     light_comp.direction = lm::vec3(0.0f, -1.0f, -0.7f);
     light_comp.color = lm::vec3(1.0f, 1.0f, 1.0f);
     light_comp.type = 0;
+	light_comp.position = lm::vec3(0,17,17);
+	light_comp.forward = light_comp.direction.normalize();
+	light_comp.setOrthographic(-10,10,-10,10,8,30);
+	light_comp.update();
+
 
 	//floor
 	int floor_entity = ECS.createEntity("floor");

@@ -48,6 +48,11 @@ void GraphicsSystem::init(int window_width, int window_height, std::string asset
 	//screen space depth shader
 	screen_depth_shader_ = new Shader("data/shaders/screen.vert", "data/shaders/screen_depth.frag");
 
+	depth_shader_ = new Shader("data/shaders/depth.vert",
+								"data/shaders/depth.frag");
+
+	shadow_frame_.initDepth(1024,1024);
+
 }
 
 //called after loading everything
@@ -64,8 +69,17 @@ void GraphicsSystem::update(float dt) {
     
 	/* SHADOW PASS FOR ONE LIGHT */
 
-
-
+	//draw only depth
+	useShader(depth_shader_);
+	//BIND THE SHADOW BUFFER
+	shadow_frame_.bindAndClear();
+	//get single light in our scene
+	Light& light = ECS.getAllComponents<Light>()[0];
+	for (auto &mesh : ECS.getAllComponents<Mesh>()) {
+		//render mesh to depth texture, from
+		//point of view of light
+		renderDepth_(mesh,light);
+	}
 
 	/* SCREEN PASS */
 
@@ -78,20 +92,31 @@ void GraphicsSystem::update(float dt) {
 
 	/* VIEW SHADOW FRAME */
 
-	//glDisable(GL_DEPTH_TEST);
-	//glViewport(0, 0, GLsizei(viewport_width_ / 4), GLsizei(viewport_height_ / 4)); //draw bottom corner
-	//useShader(screen_depth_shader_);
-	//screen_depth_shader_->setTexture(U_SCREEN_TEXTURE, shadow_frame_.color_textures[0], 0);
-	//geometries_[screen_space_geom_].render();
-	//glEnable(GL_DEPTH_TEST);
-	//glViewport(0, 0, GLsizei(viewport_width_), GLsizei(viewport_height_));
+	glDisable(GL_DEPTH_TEST);
+	glViewport(0, 0, GLsizei(viewport_width_ / 4), GLsizei(viewport_height_ / 4)); //draw bottom corner
+	useShader(screen_depth_shader_);
+	screen_depth_shader_->setTexture(U_SCREEN_TEXTURE, shadow_frame_.color_textures[0], 0);
+	geometries_[screen_space_geom_].render();
+	glEnable(GL_DEPTH_TEST);
+	glViewport(0, 0, GLsizei(viewport_width_), GLsizei(viewport_height_));
 }
 
 //renders a mesh from a Light/Camera, only setting its MVP
 //i.e. only usable with a depth shader
 void GraphicsSystem::renderDepth_(Mesh& comp, const Light& light) {
+	//send to depth shader a MVP
+	//model matrix is from the mesh comp
+	Transform& transform = ECS.getComponentFromEntity<Transform>(comp.owner);
+	lm::mat4 model_matrix = transform.getGlobalMatrix(ECS.getAllComponents<Transform>());
 
+	//view projection matrix is from light camera
+	lm::mat4 mvp_matrix = light.view_projection * model_matrix;
 
+	//send uniform to shader
+	depth_shader_->setUniform(U_MVP, mvp_matrix);
+
+	//render
+	geometries_[comp.geometry].render();
 }
 
 //renders a given mesh component
