@@ -30,6 +30,7 @@ struct Light {
     float quadratic_att;
     float spot_inner_cosine;
     float spot_outer_cosine;
+	mat4 view_projection;
     int type; // 0 - directional; 1 - point; 2 - spot
 };
 
@@ -40,7 +41,29 @@ layout (std140) uniform Lights
 {
     Light lights[MAX_LIGHTS]; 
 };
+float shadowCalculation(vec4 fragment_light_space){
+	float shadow = 0.0;
+	//homogenous coordinates
+	vec3 proj_coords = fragment_light_space.xyz / fragment_light_space.w;
+	//move all coords from -1 -> +1 to 0-> because
+	//depth buffer is 0 -> 1
+	//uvs of shadow texture (x,y) are also 0 -> 1
+	proj_coords = proj_coords * 0.5 + 0.5;
 
+	//guarantees only dealing with fragments inside shadow texture
+	//means we only calculate shadows inside light frustum
+	if(clamp(proj_coords, 0.0,1.0) == proj_coords){ 
+		//calculate distance to lightç
+		float current_depth = proj_coords.z; //distance of current fragment to light
+		float shadow_map_depth = texture(u_shadow_map,proj_coords.xy).r;
+
+		float bias = 0.005;
+		shadow = current_depth - bias > shadow_map_depth ? 1.0 : 0.0;
+
+	}
+
+	return shadow;
+}
 void main(){
 
 	vec3 mat_diffuse = u_diffuse; //colour from uniform
@@ -96,10 +119,15 @@ void main(){
 		RdotV = pow(RdotV, u_specular_gloss); //raise to power for glossiness effect
 		vec3 specular_color = RdotV * lights[i].color.xyz * u_specular;
 
+		vec4 position_light_space = lights[i].view_projection * vec4(v_vertex_world_pos, 1.0);
+		float shadow = shadowCalculation(position_light_space);
 		//final color
-        final_color += ((diffuse_color + specular_color) * attenuation * spot_cone_intensity);
+        final_color += ((diffuse_color + specular_color) * attenuation * spot_cone_intensity) * (1.0 - shadow);
 	}
 
     
 	fragColor = vec4(final_color, 1.0);
+	//fragColor = vec4(lights[0].view_projection[3][3]); test example
+	//fragColor = vec4(texture(u_shadow_map,v_uv).r); test example
+
 }

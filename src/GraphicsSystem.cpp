@@ -234,6 +234,8 @@ void GraphicsSystem::setMaterialUniforms() {
         
     }
 
+	shader_->setTexture(U_SHADOW_MAP, shadow_frame_.color_textures[0], 2);
+
 	//lights
 	GLuint u_lights = glGetUniformBlockIndex(shader_->program, "Lights");
 	if (u_lights != -1) glUniformBlockBinding(shader_->program, u_lights, LIGHTS_BINDING_POINT);
@@ -269,6 +271,10 @@ void GraphicsSystem::updateLights_() {
 		//vec4s and floats data
 		glBufferSubData(GL_UNIFORM_BUFFER, offset, 64, light_data);
 		offset += 64;
+		//light view projection matrix data
+		glBufferSubData(GL_UNIFORM_BUFFER, offset, 64, l.view_projection.m);
+		offset += 64;
+
 		//type
 		glBufferSubData(GL_UNIFORM_BUFFER, offset, 4, &(l.type));
 		offset += 16;
